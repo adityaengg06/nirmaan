@@ -1,3 +1,4 @@
+import {env} from 'cloudflare:workers';
 import {eq,and,desc} from 'drizzle-orm';
 import {getChatGPTUser} from '../../chatgpt-auth';
 import {getDb} from '../../../db';
@@ -5,7 +6,7 @@ import {requests,studentRecords} from '../../../db/schema';
 import {sameOrigin} from '../../../lib/commerce';
 import {error,isAdmin} from '../../../lib/commerce-server';
 export const dynamic='force-dynamic';
-function active(order:typeof requests.$inferSelect|undefined){return !!order&&order.kind==='order'&&order.status==='active'&&!!order.paymentVerifiedAt&&!!order.expiresAt&&Date.parse(order.expiresAt)>Date.now()&&JSON.parse(order.details).product==='id-card';}
+function active(order:typeof requests.$inferSelect|undefined){return !!order&&order.kind==='order'&&order.status==='active'&&!!order.paymentVerifiedAt&&!!order.expiresAt&&Date.parse(order.expiresAt)>Date.now()&&JSON.parse(order.details).product==='id-card'&&JSON.parse(order.details).idExperience==='student-portal';}
 export async function GET(request:Request){
  const user=await getChatGPTUser();if(!user)return error('Sign in to access student records.',401);
  const db=getDb();const id=new URL(request.url).searchParams.get('id');
@@ -35,6 +36,6 @@ export async function POST(request:Request){
  const id=current?.id||crypto.randomUUID();const now=new Date().toISOString();
  const data=JSON.stringify({attendance:{present:a.present,total:a.total},fees:{total:f.total,paid:f.paid,reference:f.reference},results:b.results.map((r:any)=>({subject:r.subject.trim(),marks:r.marks,maxMarks:r.maxMarks}))});
  const values={orderId:order.id,issuerId:order.userId,studentEmail:b.studentEmail.trim().toLowerCase(),name:b.name.trim(),studentId:b.studentId.trim(),className:b.className.trim(),data,updatedAt:now};
- if(current)await db.update(studentRecords).set(values).where(eq(studentRecords.id,id));else await db.insert(studentRecords).values({id,...values,createdAt:now});
+ if(current)await db.update(studentRecords).set(values).where(eq(studentRecords.id,id));else {const inserted=await env.DB!.prepare('INSERT INTO student_records (id,order_id,issuer_id,student_email,name,student_id,class_name,data,created_at,updated_at) SELECT ?,?,?,?,?,?,?,?,?,? WHERE (SELECT count(*) FROM student_records WHERE order_id = ?) < ? AND NOT EXISTS (SELECT 1 FROM student_records WHERE order_id = ? AND student_id = ?)').bind(id,values.orderId,values.issuerId,values.studentEmail,values.name,values.studentId,values.className,data,now,now,order.id,JSON.parse(order.details).quantity||1,order.id,values.studentId).run();if(!inserted.meta.changes)return error('This ID was just assigned or the order has reached its card limit. Refresh and try again.',409);}
  return Response.json({ok:true,id});
 }

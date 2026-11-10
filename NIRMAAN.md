@@ -13,3 +13,11 @@ See [README.md](README.md) for local setup, account creation, product pages, che
 7. Use the admin expired-plans filter to see service renewals due. Paid renewal approval extends only the selected product. Historical renewal records are not counted as expired subscriptions.
 
 UPI details can be added later in the admin dashboard. Customer cancellation is unavailable; confirmed orders cannot be cancelled and payments are non-refundable, subject to mandatory legal rights.
+
+## Design and student ID fulfillment
+
+- The selected template is stored as `designTemplate`; customer-uploaded artwork is stored privately and referenced by `designId`. Confirm the final physical print proof even when a template is chosen.
+- Student-portal ID cards need separate student assignments after activation. Open `/institution`, enter the assigned sign-in email and the institution-provided results, fee amounts and attendance counts.
+- Program each card with its own `/tap/<order-id>?student=<record-id>` URL shown in the institution desk. For multi-ID orders, do not program all cards with the bare shared order URL.
+- Student data is never shown anonymously. Institution access and the assigned student email are checked on the server; a QR link is not an authentication credential.
+- Attendance counts and fee-paid records are maintained by the institution. Verify source records before entering them; tapping does not automatically mark attendance or verify a tuition payment.
