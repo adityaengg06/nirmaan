@@ -13,7 +13,7 @@ async function evaluate(expression){const result=await cdp('Runtime.evaluate',{e
 async function waitFor(expression){for(let i=0;i<60;i++){if(await evaluate(expression))return;await pause(150)}await shot('browser-failure');console.log(await evaluate('document.body.innerText'));throw Error('Timed out: '+expression)}
 async function visit(path){await cdp('Page.navigate',{url:base+path});await waitFor("document.readyState==='complete'");await pause(600);assert(await evaluate('document.documentElement.scrollWidth<=window.innerWidth'),path+' overflows horizontally');}
 async function shot(name){const result=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile('outputs/'+name+'.png',Buffer.from(result.data,'base64'));}
-await mkdir('outputs',{recursive:true});await cdp('Page.enable');await cdp('Network.enable');
+await mkdir('outputs',{recursive:true});await cdp('Page.enable');await cdp('Network.enable');await cdp('Page.addScriptToEvaluateOnNewDocument',{source:"sessionStorage.setItem('nirmaan-intro-seen-v1','1')"});
 const user={'oai-authenticated-user-id':'browser-qa-'+crypto.randomUUID(),'oai-authenticated-user-email':'browser@example.test'};
 await cdp('Network.setExtraHTTPHeaders',{headers:user});
 await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});

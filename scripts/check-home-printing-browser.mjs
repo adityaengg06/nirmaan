@@ -13,7 +13,7 @@ async function evaluate(expression){const result=await cdp('Runtime.evaluate',{e
 async function waitFor(expression){for(let i=0;i<60;i++){if(await evaluate(expression))return;await pause(150)}await shot('browser-failure');console.log(await evaluate('document.body.innerText'));throw Error('Timed out: '+expression)}
 async function visit(path){await cdp('Page.navigate',{url:base+path});await waitFor("document.readyState!=='loading'");await pause(600);assert(await evaluate('document.documentElement.scrollWidth<=window.innerWidth'),path+' overflows horizontally');}
 async function shot(name){const result=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile('outputs/'+name+'.png',Buffer.from(result.data,'base64'));}
-await mkdir('outputs',{recursive:true});await cdp('Page.enable');await cdp('Network.enable');
+await mkdir('outputs',{recursive:true});await cdp('Page.enable');await cdp('Network.enable');await cdp('Page.addScriptToEvaluateOnNewDocument',{source:"sessionStorage.setItem('nirmaan-intro-seen-v1','1')"});
 const fixture=JSON.parse(await readFile('outputs/catalog-qa.json','utf8'));
 await cdp('Network.setExtraHTTPHeaders',{headers:fixture.issuer});await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
 await visit('/');assert.equal(await evaluate("document.querySelectorAll('[data-home-product]').length"),12);

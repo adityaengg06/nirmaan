@@ -111,3 +111,9 @@ Print specifications are fixed server-side and saved with each order:
 - Business cards: both sides printed, with separate front/reverse artwork supported. A private reverse design upload is available only for this product.
 
 The customer sees these rules at customization and checkout; the administrator sees the saved print specification and reverse artwork in the order record.
+
+## Opening tap/scan animation
+
+First-time visitors see an approximately ten-second SVG animation explaining NFC tap, QR scan and the destination opening. The storefront remains behind the introduction until it finishes, or the visitor selects **Skip intro** or presses Escape. The intro plays once per browser tab/session, and can be replayed through the footer. Reduced-motion visitors receive a shorter static sequence. Without JavaScript, the intro is hidden and the site remains accessible.
+
+The intro restores page scrolling, keyboard focus and background accessibility when it closes. Storefront browser checks bypass it deliberately; `scripts/check-intro-browser.mjs` tests the full animation, skip, replay, repeat visits and reduced-motion paths. All seven product pages retain separate product-specific benefits sections.
