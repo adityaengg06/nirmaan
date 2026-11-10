@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     details.policyVersion = POLICY_VERSION; details.termsAcceptedAt = new Date().toISOString(); amount = STARTER_AMOUNT; status = 'pending_quote';
   }
   if (kind === 'renewal') {
-    if (!RENEWALS[String(body.months)] || details.termsAccepted !== true) return error('Select a renewal plan and accept the payment terms.');
+    if (!['string','number'].includes(typeof body.months) || !Object.hasOwn(RENEWALS,String(body.months)) || details.termsAccepted !== true) return error('Select a renewal plan and accept the payment terms.');
     const subscription = (await db.select().from(requests).where(and(eq(requests.id,String(details.orderId)),eq(requests.userId,user.userId))))[0];
     if (!subscription || subscription.kind !== 'order' || subscription.status !== 'active' || !subscription.paymentVerifiedAt) return error('Renewals unlock after your first paid product is verified and activated.',403);
     details.months = String(body.months); details.policyVersion = POLICY_VERSION; details.termsAcceptedAt = new Date().toISOString(); amount = RENEWALS[String(body.months)]; status = 'awaiting_payment';
@@ -92,7 +92,7 @@ export async function PATCH(request: Request) {
       // approvals from overwriting a previously credited renewal period.
       for(let attempt=0;attempt<3;attempt++){
         const subscription=(await db.select().from(requests).where(eq(requests.id,String(details.orderId))))[0];
-        if(!subscription||subscription.userId!==row.userId||!subscription.paymentVerifiedAt||subscription.status!=='active'||!RENEWALS[details.months])return error('The linked subscription is unavailable.');
+        if(!subscription||subscription.userId!==row.userId||!subscription.paymentVerifiedAt||subscription.status!=='active'||!Object.hasOwn(RENEWALS,String(details.months)))return error('The linked subscription is unavailable.');
         const start=subscription.expiresAt&&Date.parse(subscription.expiresAt)>Date.now()?new Date(subscription.expiresAt):new Date();
         const expiresAt=addMonths(start,Number(details.months));
         const result=await env.DB!.batch([
