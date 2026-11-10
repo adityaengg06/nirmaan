@@ -15,3 +15,9 @@ export const artwork = sqliteTable('artwork', {
   id: text('id').primaryKey(), userId: text('user_id').notNull(), kind: text('kind').notNull(), filename: text('filename').notNull(),
   contentType: text('content_type').notNull(), size: integer('size').notNull(), createdAt: text('created_at').notNull(),
 });
+
+export const studentRecords = sqliteTable('student_records', {
+  id:text('id').primaryKey(), orderId:text('order_id').notNull(), issuerId:text('issuer_id').notNull(),
+  studentEmail:text('student_email').notNull(), name:text('name').notNull(), studentId:text('student_id').notNull(),
+  className:text('class_name').notNull(), data:text('data').notNull(), createdAt:text('created_at').notNull(), updatedAt:text('updated_at').notNull(),
+});
