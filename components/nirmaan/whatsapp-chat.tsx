@@ -1,0 +1,4 @@
+import {MessageCircle,ArrowUpRight} from 'lucide-react';
+const WHATSAPP_URL='https://wa.me/918052967633?text='+encodeURIComponent('Hi NIRMAAN, I would like to discuss my card requirements.');
+export function WhatsAppBanner(){return <aside className="whatsapp-requirements"><div><MessageCircle size={24}/><p><b>Have a custom requirement? Let’s chat.</b><span>Tell us directly on WhatsApp. No form to fill in.</span></p></div><a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="btn whatsapp-btn">Chat on WhatsApp <ArrowUpRight size={16}/></a></aside>}
+export default function WhatsAppChat(){return <a className="floating-whatsapp" href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" aria-label="Chat with NIRMAAN on WhatsApp about your requirements"><MessageCircle size={21}/><span>Chat on WhatsApp</span></a>}

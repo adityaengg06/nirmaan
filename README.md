@@ -73,7 +73,7 @@ The development server can remain running while you edit. Use the tracked `.open
 
 ## Design collections and product previews
 
-Each of seven product categories has ten layouts: five monochrome and five colour designs. Separate product pages feature one monochrome and one colour design. The homepage presents only ten featured cards in two rows of five, with one monochrome and one colour design each for reviews, menus, business cards, ID cards and event cards. Social displays remain linked below the featured grid and in navigation. Custom artwork has its own upload link. The full `/designs/<product>` page shows all ten layouts. Detailed previews include front/reverse views and an interactive example of the tap destination.
+Each of seven product categories has ten layouts: five monochrome and five colour designs. Separate product pages feature one monochrome and one colour design. The homepage presents only ten featured cards in two rows of five, including review, menu, business, ID, social and event cards. Review and social media cards are explicitly included in Explore, product navigation and the homepage display. Custom artwork has its own upload link. The full `/designs/<product>` page shows all ten layouts. Detailed previews include front/reverse views and an interactive example of the tap destination.
 
 `/upload-design` opens the direct-artwork path. Account creation remains mandatory; product, selected template and upload mode are preserved through account setup. Uploaded artwork, logo and photo files remain private to the customer and authorized administrator.
 
@@ -116,7 +116,7 @@ The customer sees these rules at customization and checkout; the administrator s
 
 The homepage opens with a quick, approximately five-second video-style animation: a phone taps an NFC card, a notification appears, a visible pointer clicks it, and a Google review page opens. It plays on every homepage visit/refresh. Click anywhere, use **Skip intro**, or press Escape to reveal the site immediately. **Watch tap & scan** and the footer replay link start it again. Reduced-motion visitors see a shorter static sequence.
 
-Category pages have their own ten-second autoplay demonstrations in the hero. Each starts whenever that page opens and has Play/Pause, Replay, a progress bar and elapsed time:
+Category pages have their own ten-second autoplay demonstrations in the hero. Each starts whenever that page opens and has an unobtrusive pause/play control and a progress bar, without a written replay control or timer:
 
 - Reviews: tap → notification → Google review page → stars → typed feedback → sample confirmation.
 - ID cards: tap → notification → profile → results → fees paid → attendance.
@@ -128,3 +128,15 @@ Category pages have their own ten-second autoplay demonstrations in the hero. Ea
 These are simulated product demonstrations. No Google review is submitted, no contact is automatically downloaded, no tuition is collected and no attendance is marked by the animation. Visitors can use the separate interactive sample farther down the product page. Every product page includes its own benefits and illustrated workflow.
 
 The first-page intro does not interrupt category pages; their own demo is visible immediately. Timers pause in background tabs and while an intro is visible.
+
+## Design Studio, template selection and gallery upload
+
+`/design-studio` lets a customer select the card type and one of ten templates; edit the business name, logo, tagline, wishes, colours, font and alignment; and drag or reposition text, logo and QR-placeholder layers. Business cards have separate front/reverse editing. Menu cards reuse the same artwork on both sides. A draft can be downloaded as PNG or saved privately to checkout. The working QR is added during final setup; exported drafts explicitly reserve a QR area.
+
+`/upload-design` is a minimal upload-and-chat page: select an image from the gallery (or a PDF), see it in the side preview, then open WhatsApp. It asks for no account, card selection or personal details. The file remains a browser-local preview; the visitor attaches the same design in WhatsApp because a wa.me link cannot attach a browser file automatically. Business-card reverse artwork remains available in Design Studio and online checkout.
+
+Guest artwork drafts are kept in IndexedDB on the visitor’s device. Account creation is still required before submitting an online order; Studio drafts return after account setup. The upload-and-chat page does not require an account. Saved artwork is uploaded to private R2 storage and passed into checkout by a scoped draft token. Choosing a new template clears the prior main/reverse artwork selection while retaining the logo and other details.
+
+Customization always displays ten template choices. **Design Studio** and **Upload design** are available in navigation. A direct WhatsApp banner and floating chat link open +91 80529 67633 immediately without a form or sign-in; the visitor sends the message themselves.
+
+The animation cursor guards against removed/unmounted phone elements. `scripts/check-customization-local.mjs` regression-checks repeated navigation from animated product pages into customization on localhost:5173.

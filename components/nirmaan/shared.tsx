@@ -4,9 +4,9 @@ import {getDesign,printSpecification} from '../../lib/designs';
 import { Wifi, ArrowRight } from 'lucide-react';
 import { Address, STATES } from '../../lib/commerce';
 export const PRODUCTS = [
-  {id:'reviews',title:'Google Review Display',page:'/reviews',tag:'MAKE GOOD EXPERIENCES COUNT',text:'A prominent countertop NFC + QR display for honest Google reviews.',color:'peach'},
+  {id:'reviews',title:'Google Review Card',page:'/reviews',tag:'MAKE GOOD EXPERIENCES COUNT',text:'A prominent countertop NFC + QR display for honest Google reviews.',color:'peach'},
   {id:'menu',title:'Digital Menu Display',page:'/menu',tag:'MADE FOR CAFÉS & RESTAURANTS',text:'Your menu, specials and restaurant details. One tap or scan away.',color:'sage'},
-  {id:'social',title:'Social Connect Display',page:'/social',tag:'GROW YOUR CONNECTIONS',text:'Bring your social profiles, website and community together.',color:'lavender'},
+  {id:'social',title:'Social Media Card',page:'/social',tag:'GROW YOUR CONNECTIONS',text:'Bring your social profiles, website and community together.',color:'lavender'},
   {id:'id-card',title:'Custom ID Card',page:'/id-card',tag:'YOUR TEAM. YOUR IDENTITY.',text:'Branded PVC employee and member cards, with optional NFC + QR.',color:'sand'},
   {id:'business',title:'Digital Business Card',page:'/business-card',tag:'MAKE AN INTRODUCTION',text:'Share your contact details, portfolio and business links.',color:'sage'},
   {id:'event',title:'Event NFC Card',page:'/event-card',tag:'ONE CARD. YOUR WHOLE EVENT.',text:'Branded event cards linking guests to event details, agenda and venue information.',color:'lavender'},
