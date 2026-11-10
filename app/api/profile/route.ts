@@ -7,9 +7,9 @@ import { error, isAdmin } from '../../../lib/commerce-server';
 export const dynamic = 'force-dynamic';
 export async function GET() {
   const user = await getChatGPTUser();
-  if (!user) return Response.json({signedIn:false,profile:null});
+  if (!user) return Response.json({signedIn:false,profile:null},{headers:{'Cache-Control':'private, no-store'}});
   const profile = (await getDb().select().from(profiles).where(eq(profiles.userId,user.userId)))[0];
-  return Response.json({signedIn:true,email:user.email,admin:isAdmin(user.email),profile:profile ? {...profile,address:JSON.parse(profile.address)} : null});
+  return Response.json({signedIn:true,email:user.email,admin:isAdmin(user.email),profile:profile ? {...profile,address:JSON.parse(profile.address)} : null},{headers:{'Cache-Control':'private, no-store'}});
 }
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return error('Forbidden',403);

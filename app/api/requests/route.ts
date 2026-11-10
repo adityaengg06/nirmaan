@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   if (all && !isAdmin(user.email)) return error('Administrator access is restricted to the authorized business email.',403);
   const db = getDb();
   const rows = all ? await db.select().from(requests).orderBy(desc(requests.createdAt)) : await db.select().from(requests).where(eq(requests.userId,user.userId)).orderBy(desc(requests.createdAt));
-  return Response.json({rows,email:user.email,admin:isAdmin(user.email),canRenew:rows.some(r=>r.kind==='order'&&r.status==='active'&&!!r.paymentVerifiedAt)});
+  return Response.json({rows,email:user.email,admin:isAdmin(user.email),canRenew:rows.some(r=>r.kind==='order'&&r.status==='active'&&!!r.paymentVerifiedAt)},{headers:{'Cache-Control':'private, no-store'}});
 }
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return error('Forbidden',403);
@@ -87,11 +87,24 @@ export async function PATCH(request: Request) {
     if (!['order','renewal'].includes(row.kind) || row.status !== 'payment_review' || !row.quoteAcceptedAt || body.confirmedPayment !== true) return error('Review the uploaded receipt and confirm payment before activation.');
     const receipt = await env.BUCKET!.head('receipts/'+row.id); if (!receipt) return error('Payment proof must be uploaded before verification.');
     if (row.kind === 'renewal') {
-      const details = JSON.parse(row.details); const subscription = (await db.select().from(requests).where(eq(requests.id,String(details.orderId))))[0];
-      if (!subscription || subscription.userId !== row.userId || !subscription.paymentVerifiedAt || subscription.status!=='active' || !RENEWALS[details.months]) return error('The linked subscription is unavailable.');
-      const start = subscription.expiresAt && Date.parse(subscription.expiresAt)>Date.now() ? new Date(subscription.expiresAt) : new Date();
-      const expiresAt = addMonths(start, Number(details.months));
-      await db.batch([db.update(requests).set({status:'completed',paymentVerifiedAt:now,expiresAt}).where(and(eq(requests.id,row.id),eq(requests.status,'payment_review'))),db.update(requests).set({expiresAt}).where(eq(requests.id,subscription.id))]);
+      const details = JSON.parse(row.details);
+      // A compare-and-set guard in the atomic D1 batch prevents concurrent
+      // approvals from overwriting a previously credited renewal period.
+      for(let attempt=0;attempt<3;attempt++){
+        const subscription=(await db.select().from(requests).where(eq(requests.id,String(details.orderId))))[0];
+        if(!subscription||subscription.userId!==row.userId||!subscription.paymentVerifiedAt||subscription.status!=='active'||!RENEWALS[details.months])return error('The linked subscription is unavailable.');
+        const start=subscription.expiresAt&&Date.parse(subscription.expiresAt)>Date.now()?new Date(subscription.expiresAt):new Date();
+        const expiresAt=addMonths(start,Number(details.months));
+        const result=await env.DB!.batch([
+          env.DB!.prepare("UPDATE requests SET status = 'processing' WHERE id = ? AND status = 'payment_review' AND EXISTS (SELECT 1 FROM requests p WHERE p.id = ? AND p.status = 'active' AND p.expires_at IS ?)").bind(row.id,subscription.id,subscription.expiresAt),
+          env.DB!.prepare("UPDATE requests SET expires_at = ? WHERE id = ? AND EXISTS (SELECT 1 FROM requests r WHERE r.id = ? AND r.status = 'processing')").bind(expiresAt,subscription.id,row.id),
+          env.DB!.prepare("UPDATE requests SET status = 'completed', payment_verified_at = ?, expires_at = ? WHERE id = ? AND status = 'processing'").bind(now,expiresAt,row.id),
+        ]);
+        if(result[0].meta.changes)return Response.json({ok:true});
+        const latest=(await db.select().from(requests).where(eq(requests.id,row.id)))[0];
+        if(latest?.status!=='payment_review')return error('This payment was already processed. Refresh the account.',409);
+      }
+      return error('The subscription changed during approval. Please refresh and verify again.',409);
     } else { await db.update(requests).set({status:'active',paymentVerifiedAt:now,expiresAt:addMonths(new Date(),1)}).where(and(eq(requests.id,row.id),eq(requests.status,'payment_review'))); }
     return Response.json({ok:true});
   }
