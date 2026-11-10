@@ -1,4 +1,4 @@
-import {DESIGNS} from '../../../lib/designs';
+import {DESIGNS,printSpecification} from '../../../lib/designs';
 import { getChatGPTUser } from '../../chatgpt-auth';
 import { getDb } from '../../../db';
 import { requests, profiles, artwork } from '../../../db/schema';
@@ -31,12 +31,14 @@ export async function POST(request: Request) {
     if (!validAddress(details.address)) return error('Enter the complete delivery address with a valid PIN code.');
     if (!PRODUCT_IDS.includes(details.product) || (!(details.product==='id-card'&&details.idExperience==='student-portal')&&!validDestination(details.destination)) || typeof details.businessName !== 'string' || !details.businessName.trim() || details.businessName.length > 100 || !/^#[a-fA-F0-9]{6}$/.test(details.color)) return error('Complete your product, business name, colour and valid destination link.');
     if (details.designTemplate!==undefined&&!DESIGNS.some(d=>d.id===details.designTemplate)) return error('Select a valid design template.');
+    if(details.reverseDesignId&&details.product!=='business')return error('Reverse artwork is available only for business cards. Menu cards use the same design on both sides.');
+    details.printSpecification=printSpecification(details.product);
     if (details.designMode==='upload'&&!details.designId) return error('Upload your custom design before proceeding.');
     if (details.product==='id-card'&&details.idExperience!==undefined&&!['student-portal','external'].includes(details.idExperience)) return error('Select a valid ID experience.');
     if (details.format !== (['reviews','menu','social','custom'].includes(details.product) ? 'countertop-display' : 'pvc-card')) return error('Select the correct product format.');
     if (!Number.isInteger(details.quantity) || details.quantity < 1 || details.quantity > 500) return error('Choose between 1 and 500 items.');
     if (details.termsAccepted !== true) return error('Accept the non-refundable and no-cancellation terms before proceeding.');
-    for (const [key,expectedKind] of [['designId','design'],['logoId','logo'],['photoId','photo']]) {
+    for (const [key,expectedKind] of [['designId','design'],['reverseDesignId','reverse'],['logoId','logo'],['photoId','photo']]) {
       if (details[key]) { const file = (await db.select().from(artwork).where(eq(artwork.id,String(details[key]))))[0]; if (!file || file.userId !== user.userId || file.kind !== expectedKind) return error('An uploaded file is unavailable or belongs to another account.',403); }
     }
     if (['tagline','wishes','notes','employeeName','designation','employeeId','contactDetails'].some(k=>details[k]!==undefined&&(typeof details[k]!=='string'||details[k].length>1500))) return error('Keep each customization field under 1500 characters.');
@@ -52,7 +54,7 @@ export async function POST(request: Request) {
   if (kind === 'demo') {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(details.date) || !/^\d{2}:\d{2}$/.test(details.time) || !Number.isFinite(Date.parse(details.date+'T'+details.time+':00+05:30')) || Date.parse(details.date+'T'+details.time+':00+05:30') < Date.now()) return error('Choose a future demo date and time in IST.');
   }
-  const allowed = kind === 'order' ? ['designTemplate','designMode','idExperience','product','businessName','color','tagline','wishes','contactDetails','notes','destination','quantity','format','address','employeeName','employeeId','designation','designId','logoId','photoId','termsAccepted','policyVersion','termsAcceptedAt'] : kind === 'renewal' ? ['orderId','months','termsAccepted','policyVersion','termsAcceptedAt'] : ['date','time','notes'];
+  const allowed = kind === 'order' ? ['printSpecification','reverseDesignId','designTemplate','designMode','idExperience','product','businessName','color','tagline','wishes','contactDetails','notes','destination','quantity','format','address','employeeName','employeeId','designation','designId','logoId','photoId','termsAccepted','policyVersion','termsAcceptedAt'] : kind === 'renewal' ? ['orderId','months','termsAccepted','policyVersion','termsAcceptedAt'] : ['date','time','notes'];
   const serialized = JSON.stringify(Object.fromEntries(allowed.filter(key=>details[key]!==undefined).map(key=>[key,details[key]]))); if (serialized.length > 16000) return error('Your customization details are too long.');
   const id = crypto.randomUUID(); const now = new Date().toISOString();
   await db.insert(requests).values({id,userId:user.userId,email:user.email,kind,business:body.business.trim(),phone:body.phone,details:serialized,amount,status,createdAt:now,quoteAcceptedAt:kind==='renewal'?now:null});

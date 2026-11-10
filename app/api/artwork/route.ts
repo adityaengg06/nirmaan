@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   if (!(await getDb().select().from(profiles).where(eq(profiles.userId,user.userId)))[0]) return error('Complete your NIRMAAN account first.',403);
   if (Number(request.headers.get('content-length') || 0) > 11_000_000) return error('Use a file under 10 MB.',413);
   const data = await request.formData(); const file = data.get('file'); const kind = data.get('kind');
-  if (!(file instanceof File) || !['design','logo','photo'].includes(String(kind)) || !TYPES.includes(file.type) || (kind !== 'design' && file.type === 'application/pdf') || file.size < 1 || file.size > 10_000_000) return error('Upload JPG, PNG or WebP images, or a PDF design, up to 10 MB.');
+  if (!(file instanceof File) || !['design','reverse','logo','photo'].includes(String(kind)) || !TYPES.includes(file.type) || (!['design','reverse'].includes(String(kind)) && file.type === 'application/pdf') || file.size < 1 || file.size > 10_000_000) return error('Upload JPG, PNG or WebP images, or a PDF design, up to 10 MB.');
   const bytes = new Uint8Array(await file.arrayBuffer());
   const valid = file.type === 'image/png' ? [137,80,78,71,13,10,26,10].every((v,i)=>bytes[i]===v) : file.type === 'image/jpeg' ? bytes[0]===255 && bytes[1]===216 && bytes[2]===255 : file.type === 'application/pdf' ? new TextDecoder().decode(bytes.slice(0,5))==='%PDF-' : new TextDecoder().decode(bytes.slice(0,4))==='RIFF' && new TextDecoder().decode(bytes.slice(8,12))==='WEBP';
   if (!valid) return error('The file content does not match its image or PDF format.');

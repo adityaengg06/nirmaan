@@ -1,0 +1,36 @@
+// Browser QA uses synthetic identities only against the local built server.
+import assert from 'node:assert/strict';
+import {writeFile,mkdir,readFile} from 'node:fs/promises';
+const base='http://127.0.0.1:8787';
+const tabs=await (await fetch('http://127.0.0.1:9223/json/list')).json();
+const tab=tabs.find(t=>t.type==='page');
+const socket=new WebSocket(tab.webSocketDebuggerUrl);await new Promise(r=>socket.addEventListener('open',r,{once:true}));
+let next=0;const pending=new Map();
+socket.addEventListener('message',event=>{const msg=JSON.parse(event.data);if(msg.id&&pending.has(msg.id)){const {resolve,reject}=pending.get(msg.id);pending.delete(msg.id);msg.error?reject(Error(JSON.stringify(msg.error))):resolve(msg.result)}});
+function cdp(method,params={}){const id=++next;return new Promise((resolve,reject)=>{pending.set(id,{resolve,reject});socket.send(JSON.stringify({id,method,params}))})}
+const pause=ms=>new Promise(r=>setTimeout(r,ms));
+async function evaluate(expression){const result=await cdp('Runtime.evaluate',{expression,returnByValue:true,awaitPromise:true});if(result.exceptionDetails)throw Error(result.exceptionDetails.text);return result.result.value;}
+async function waitFor(expression){for(let i=0;i<60;i++){if(await evaluate(expression))return;await pause(150)}await shot('browser-failure');console.log(await evaluate('document.body.innerText'));throw Error('Timed out: '+expression)}
+async function visit(path){await cdp('Page.navigate',{url:base+path});await waitFor("document.readyState!=='loading'");await pause(600);assert(await evaluate('document.documentElement.scrollWidth<=window.innerWidth'),path+' overflows horizontally');}
+async function shot(name){const result=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile('outputs/'+name+'.png',Buffer.from(result.data,'base64'));}
+await mkdir('outputs',{recursive:true});await cdp('Page.enable');await cdp('Network.enable');
+const fixture=JSON.parse(await readFile('outputs/catalog-qa.json','utf8'));
+await cdp('Network.setExtraHTTPHeaders',{headers:fixture.issuer});await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});
+await visit('/');assert.equal(await evaluate("document.querySelectorAll('[data-home-product]').length"),12);
+const layout=await evaluate("(()=>{const cards=Array.from(document.querySelectorAll('[data-home-product]'));return {columns:getComputedStyle(document.querySelector('.home-compact-grid')).gridTemplateColumns.split(' ').length,rows:new Set(cards.map(e=>Math.round(e.getBoundingClientRect().top))).size,counts:cards.reduce((a,e)=>(a[e.dataset.homeProduct]=(a[e.dataset.homeProduct]||0)+1,a),{})}})()");assert.equal(layout.columns,6);assert.equal(layout.rows,2);assert.equal(await evaluate("document.querySelectorAll('[data-home-theme=Colour]').length"),6);assert.equal(Object.keys(layout.counts).length,6);Object.values(layout.counts).forEach(count=>assert.equal(count,2));
+assert.equal(await evaluate("document.querySelectorAll('[data-home-preview]').length"),3);
+await evaluate("document.querySelector('#products').scrollIntoView({block:'start'})");await pause(300);await shot('homepage-two-rows-six-columns');
+await evaluate("document.querySelector('[data-home-preview=reviews] .interactive-stars button').click()");await waitFor("document.querySelector('[data-home-preview=reviews]').textContent.includes('1 star selected')");
+await evaluate("Array.from(document.querySelectorAll('[data-home-preview=menu] .menu-categories button')).find(b=>b.textContent==='Coffee').click()");await pause(100);assert.equal(await evaluate("document.querySelectorAll('[data-home-preview=menu] .menu-dishes article').length"),1);
+await evaluate("Array.from(document.querySelectorAll('[data-home-preview=business] .preview-content-tabs button')).find(b=>b.textContent==='Contact').click()");await waitFor("document.querySelector('[data-home-preview=business]').textContent.includes('Save sample contact')");
+await evaluate("document.querySelector('#live-previews').scrollIntoView({block:'start'})");await pause(300);await shot('homepage-three-working-previews');
+for(const path of ['/business-card','/event-card','/reviews','/menu']){await visit(path);assert(await evaluate("!!document.querySelector('.product-benefits')"));}
+await visit('/business-card');await evaluate("document.querySelector('.design-art').click()");await waitFor("!!document.querySelector('.design-modal')");await evaluate("Array.from(document.querySelectorAll('.preview-view-tabs button')).find(b=>b.textContent==='Back / reverse').click()");await waitFor("!!document.querySelector('.large-design-preview .card-back')");await shot('business-reverse-preview');await evaluate("document.querySelector('.modal-close').click()");
+await visit('/menu');await evaluate("document.querySelector('.design-art').click()");await waitFor("!!document.querySelector('.large-design-preview')");const front=await evaluate("document.querySelector('.large-design-preview').innerHTML");await evaluate("Array.from(document.querySelectorAll('.preview-view-tabs button')).find(b=>b.textContent.includes('Other side')).click()");await pause(100);assert.equal(await evaluate("document.querySelector('.large-design-preview').innerHTML"),front);await evaluate("document.querySelector('.modal-close').click()");
+for(const path of ['/reviews','/event-card','/id-card']){await visit(path);await evaluate("document.querySelector('.design-art').click()");await waitFor("!!document.querySelector('.design-modal')");assert.equal(await evaluate("document.querySelectorAll('.preview-view-tabs button').length"),2);await evaluate("document.querySelector('.modal-close').click()");}
+await visit('/designs/event');assert.equal(await evaluate("document.querySelectorAll('.theme-colour').length"),5);assert.equal(await evaluate("document.querySelectorAll('.theme-black,.theme-white').length"),5);await shot('event-gallery-five-mono-five-colour');
+await visit('/checkout?product=business');await waitFor("!!document.querySelector('.checkout-form')");assert(await evaluate("document.querySelector('.checkout-form').textContent.includes('Upload business card reverse design')"));
+await visit('/checkout?product=menu');await waitFor("!!document.querySelector('.checkout-form')");assert(!await evaluate("document.querySelector('.checkout-form').textContent.includes('Upload business card reverse design')"));
+await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:false});for(const path of ['/','/event-card','/business-card','/designs/event'])await visit(path);
+await visit('/event-card');await evaluate("Array.from(document.querySelectorAll('.event-preview .preview-content-tabs button')).find(b=>b.textContent==='Agenda').click()");await waitFor("!!document.querySelector('.agenda-row')");await evaluate("document.querySelector('.event-preview').scrollIntoView({block:'start'})");await pause(200);await shot('event-agenda-mobile');
+socket.close();console.log('PASS: homepage 12 cards in exactly 2 rows x 6 columns, two per category, three working home previews, separate benefit pages, business reverse preview, identical menu sides, single-sided preview restrictions, 5 monochrome + 5 colour designs, business-only reverse upload and mobile layouts.');

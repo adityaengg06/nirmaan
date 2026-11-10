@@ -1,0 +1,13 @@
+'use client';
+import {ArrowRight,ArrowUpRight} from 'lucide-react';
+import {Card,PRODUCTS} from './shared';
+import {featuredDesignsFor,checkoutPath,galleryPath,printLabel} from '../../lib/designs';
+import ExperiencePreview from './experience-preview';
+const CATEGORIES=['reviews','menu','business','id-card','social','event'];
+export function HomeCatalog({filter='All products'}:{filter?:string}){
+ const categories=CATEGORIES.map(id=>PRODUCTS.find(p=>p.id===id)!).filter(p=>filter==='All products'||filter==='Displays'&&['reviews','menu','social'].includes(p.id)||filter==='ID cards'&&p.id==='id-card'||filter==='Business cards'&&p.id==='business'||filter==='Event cards'&&p.id==='event');
+ return <div className="home-compact-grid" aria-label="Twelve cards in two rows and six columns: two designs per category">{categories.flatMap(p=>featuredDesignsFor(p.id).map(d=><article className="home-compact-card" key={p.id+d.id} data-home-product={p.id} data-home-design={d.id} data-home-theme={d.theme}><a className="home-card-art" href={p.page} aria-label={'Explore '+p.title+' in '+d.name}><Card type={p.id} color={d.color} design={d.id} name={p.id==='event'?'YOUR EVENT':'YOUR BUSINESS'}/></a><div className="home-card-info"><span className="home-theme-name">{d.name}</span><h3>{p.title}</h3><small>{printLabel(p.id)}</small><div className="home-card-links"><a href={p.page}>Details & preview <ArrowUpRight size={12}/></a><a href={galleryPath(p.id)}>See all 10 <ArrowRight size={12}/></a></div></div><a className="home-card-select" href={checkoutPath(p.id,d.id)} aria-label={'Choose '+d.name+' '+p.title}><ArrowUpRight size={17}/></a></article>))}</div>;
+}
+export function HomeLivePreviews(){
+ return <section className="section home-live-section" id="live-previews"><div className="section-heading"><div><div className="eyebrow">ONE TAP. SEE WHAT HAPPENS.</div><h2>Three cards. Three working previews.</h2><p>Try a review rating, explore a business profile, or browse a sample menu.</p></div></div><div className="home-live-previews">{[{id:'reviews',title:'Google review card',text:'Try the stars and feedback box.',path:'/reviews'},{id:'business',title:'Digital business card',text:'Explore profile, services and contact saving.',path:'/business-card'},{id:'menu',title:'Digital menu card',text:'Switch categories and explore the sample dishes.',path:'/menu'}].map(p=><article className="home-live-item" key={p.id} data-home-preview={p.id}><div className="home-live-heading"><h3>{p.title}</h3><p>{p.text}</p></div><ExperiencePreview product={p.id}/><a className="text-link" href={p.path}>Full details, designs & benefits <ArrowRight size={15}/></a></article>)}</div></section>;
+}

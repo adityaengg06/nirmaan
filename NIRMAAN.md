@@ -21,3 +21,7 @@ UPI details can be added later in the admin dashboard. Customer cancellation is 
 - Program each card with its own `/tap/<order-id>?student=<record-id>` URL shown in the institution desk. For multi-ID orders, do not program all cards with the bare shared order URL.
 - Student data is never shown anonymously. Institution access and the assigned student email are checked on the server; a QR link is not an authentication credential.
 - Attendance counts and fee-paid records are maintained by the institution. Verify source records before entering them; tapping does not automatically mark attendance or verify a tuition payment.
+
+## Printing policy
+
+Only business and menu cards are double-sided. Menu cards repeat the identical front artwork on the reverse. Business cards may have different front/reverse artwork. All other products, including event and ID cards, are single-sided. Follow the order’s server-assigned `printSpecification` and use `reverseDesignId` only for a business-card reverse print.
