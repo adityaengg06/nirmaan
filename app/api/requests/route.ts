@@ -1,4 +1,4 @@
-import {DESIGNS,printSpecification} from '../../../lib/designs';
+import {getDesigns,printSpecification} from '../../../lib/designs';
 import { getChatGPTUser } from '../../chatgpt-auth';
 import { getDb } from '../../../db';
 import { requests, profiles, artwork } from '../../../db/schema';
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     if (!profile) return error('Complete your NIRMAAN account before placing an order.',403);
     if (!validAddress(details.address)) return error('Enter the complete delivery address with a valid PIN code.');
     if (!PRODUCT_IDS.includes(details.product) || (!(details.product==='id-card'&&details.idExperience==='student-portal')&&!validDestination(details.destination)) || typeof details.businessName !== 'string' || !details.businessName.trim() || details.businessName.length > 100 || !/^#[a-fA-F0-9]{6}$/.test(details.color)) return error('Complete your product, business name, colour and valid destination link.');
-    if (details.designTemplate!==undefined&&!DESIGNS.some(d=>d.id===details.designTemplate)) return error('Select a valid design template.');
+    if (details.designTemplate!==undefined&&!getDesigns(details.product).some(d=>d.id===details.designTemplate)) return error('Select a valid design template.');
     if(details.reverseDesignId&&details.product!=='business')return error('Reverse artwork is available only for business cards. Menu cards use the same design on both sides.');
     details.printSpecification=printSpecification(details.product);
     if (details.designMode==='upload'&&!details.designId) return error('Upload your custom design before proceeding.');

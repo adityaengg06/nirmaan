@@ -6,8 +6,8 @@ const STORAGE_KEY='nirmaan-intro-seen-v1';
 export default function IntroAnimation(){
  const[visible,setVisible]=useState(true);const[replay,setReplay]=useState(false);const[run,setRun]=useState(0);const[reduced,setReduced]=useState(false);const skip=useRef<HTMLButtonElement>(null);
  const finish=useCallback(()=>{try{sessionStorage.setItem(STORAGE_KEY,'1')}catch{}document.documentElement.dataset.nirmaanIntro='seen';setVisible(false);window.dispatchEvent(new Event('nirmaan:intro-finished'))},[]);
- useEffect(()=>{try{if(location.pathname==='/'){document.documentElement.dataset.nirmaanIntro='play';setVisible(true)}else setVisible(false)}catch{}const restart=()=>{setReplay(true);setRun(n=>n+1);setVisible(true)};window.addEventListener('nirmaan:replay-intro',restart);return()=>window.removeEventListener('nirmaan:replay-intro',restart)},[]);
- useEffect(()=>{if(!visible)return;try{if(!replay&&location.pathname!=='/')return}catch{}
+ useEffect(()=>{try{if(location.pathname==='/'&&sessionStorage.getItem(STORAGE_KEY)!=='1'){document.documentElement.dataset.nirmaanIntro='play';setVisible(true)}else setVisible(false)}catch{}const restart=()=>{setReplay(true);setRun(n=>n+1);setVisible(true)};window.addEventListener('nirmaan:replay-intro',restart);return()=>window.removeEventListener('nirmaan:replay-intro',restart)},[]);
+ useEffect(()=>{if(!visible)return;try{if(!replay&&(location.pathname!=='/'||sessionStorage.getItem(STORAGE_KEY)==='1'))return}catch{}
   setReduced(window.matchMedia('(prefers-reduced-motion: reduce)').matches);const content=document.getElementById('site-content');const oldInert=content?.inert,oldHidden=content?.getAttribute('aria-hidden'),oldOverflow=document.body.style.overflow,oldFocus=document.activeElement as HTMLElement|null;
   if(content){content.inert=true;content.setAttribute('aria-hidden','true')}document.body.style.overflow='hidden';skip.current?.focus({preventScroll:true});
   const key=(e:KeyboardEvent)=>{if(['Escape','Enter',' '].includes(e.key)){e.preventDefault();finish()}else if(e.key==='Tab'){e.preventDefault();skip.current?.focus()}};document.addEventListener('keydown',key);
