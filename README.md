@@ -73,7 +73,7 @@ The development server can remain running while you edit. Use the tracked `.open
 
 ## Design collections and product previews
 
-Each of seven product categories has ten layouts: five monochrome and five colour designs. Separate product pages feature one monochrome and one colour design. The homepage presents only twelve compact cards in two rows of six, with one monochrome and one colour design each for reviews, menus, business cards, ID cards, social cards and event cards. Custom artwork has its own upload link. The full `/designs/<product>` page shows all ten layouts. Detailed previews include front/reverse views and an interactive example of the tap destination.
+Each of seven product categories has ten layouts: five monochrome and five colour designs. Separate product pages feature one monochrome and one colour design. The homepage presents only ten featured cards in two rows of five, with one monochrome and one colour design each for reviews, menus, business cards, ID cards and event cards. Social displays remain linked below the featured grid and in navigation. Custom artwork has its own upload link. The full `/designs/<product>` page shows all ten layouts. Detailed previews include front/reverse views and an interactive example of the tap destination.
 
 `/upload-design` opens the direct-artwork path. Account creation remains mandatory; product, selected template and upload mode are preserved through account setup. Uploaded artwork, logo and photo files remain private to the customer and authorized administrator.
 
@@ -112,8 +112,19 @@ Print specifications are fixed server-side and saved with each order:
 
 The customer sees these rules at customization and checkout; the administrator sees the saved print specification and reverse artwork in the order record.
 
-## Opening tap/scan animation
+## Opening and product animations
 
-First-time visitors see an approximately ten-second SVG animation explaining NFC tap, QR scan and the destination opening. The storefront remains behind the introduction until it finishes, or the visitor selects **Skip intro** or presses Escape. The intro plays once per browser tab/session, and can be replayed through the footer. Reduced-motion visitors receive a shorter static sequence. Without JavaScript, the intro is hidden and the site remains accessible.
+The homepage opens with a quick, approximately five-second video-style animation: a phone taps an NFC card, a notification appears, a visible pointer clicks it, and a Google review page opens. It plays on every homepage visit/refresh. Click anywhere, use **Skip intro**, or press Escape to reveal the site immediately. **Watch tap & scan** and the footer replay link start it again. Reduced-motion visitors see a shorter static sequence.
 
-The intro restores page scrolling, keyboard focus and background accessibility when it closes. Storefront browser checks bypass it deliberately; `scripts/check-intro-browser.mjs` tests the full animation, skip, replay, repeat visits and reduced-motion paths. All seven product pages retain separate product-specific benefits sections.
+Category pages have their own ten-second autoplay demonstrations in the hero. Each starts whenever that page opens and has Play/Pause, Replay, a progress bar and elapsed time:
+
+- Reviews: tap → notification → Google review page → stars → typed feedback → sample confirmation.
+- ID cards: tap → notification → profile → results → fees paid → attendance.
+- Business cards: tap → notification → profile/portfolio → services → contact details → contact saving demonstration.
+- Menus: tap → notification → menu → coffee → bites → desserts.
+- Events: tap → notification → event details → agenda → venue.
+- Social and custom cards: tap → notification → configured business destination.
+
+These are simulated product demonstrations. No Google review is submitted, no contact is automatically downloaded, no tuition is collected and no attendance is marked by the animation. Visitors can use the separate interactive sample farther down the product page. Every product page includes its own benefits and illustrated workflow.
+
+The first-page intro does not interrupt category pages; their own demo is visible immediately. Timers pause in background tabs and while an intro is visible.
