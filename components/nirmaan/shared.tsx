@@ -2,7 +2,7 @@
 import type {CSSProperties} from 'react';
 import {getDesign,printSpecification,categorySymbol} from '../../lib/designs';
 import { Wifi, ArrowRight } from 'lucide-react';
-import { Address, STATES } from '../../lib/commerce';
+import { Address, STATES, PHONE_INPUT_PATTERN } from '../../lib/commerce';
 export const PRODUCTS = [
   {id:'reviews',title:'Google Review Card',page:'/reviews',tag:'MAKE GOOD EXPERIENCES COUNT',text:'A prominent countertop NFC + QR display for honest Google reviews.',color:'peach'},
   {id:'menu',title:'Digital Menu Display',page:'/menu',tag:'MADE FOR CAFÉS & RESTAURANTS',text:'Your menu, specials and restaurant details. One tap or scan away.',color:'sage'},
@@ -27,10 +27,7 @@ export function HowItWorks({product='your display'}:{product?:string}) {
   ].map(([number,title,text,src])=><article className="step" key={number}><img src={src} alt={title+' — '+text} width="360" height="230" loading="lazy"/><div className="step-line"><span>STEP {number}</span><ArrowRight size={17}/></div><h3>{title}</h3><p>{text}</p></article>)}</div></section>;
 }
 export function AddressFields({value,onChange}:{value:Address;onChange:(value:Address)=>void}) {
-  const input=(key:keyof Address,label:string,required=true,extra:Record<string,string|number>={})=><label key={key}>{label}{!required&&<span className="optional"> (optional)</span>}<input value={value[key]} onChange={e=>onChange({...value,[key]:e.target.value})} required={required} maxLength={200} {...extra}/></label>;
-  return <div className="address-fields"><div className="form-row">{input('recipient','Recipient’s full name')}{input('phone','Delivery mobile number',true,{type:'tel',placeholder:'9876543210',pattern:'(?:\\+91[ -]?)?[6-9][0-9]{9}'})}</div>{input('line1','House / flat / shop number and building')}{input('line2','Street / area / locality',false)}{input('landmark','Nearby landmark',false)}<div className="form-row">{input('city','City / town')}{input('district','District')}</div><div className="form-row"><label>State / union territory<select value={value.state} onChange={e=>onChange({...value,state:e.target.value})} required><option value="">Select state</option>{STATES.map(state=><option key={state}>{state}</option>)}</select></label>{input('pincode','PIN code',true,{inputMode:'numeric',pattern:'[1-9][0-9]{5}',maxLength:6,placeholder:'6-digit PIN'})}</div><label>Country<input value="India" readOnly/></label></div>;
+  const input=(key:keyof Address,label:string,required=true,extra:Record<string,string|number>={})=><label key={key}>{label}{!required&&<span className="optional"> (optional)</span>}<input id={'delivery-'+key} name={'address.'+key} value={value[key]??''} onChange={e=>onChange({...value,[key]:e.target.value})} required={required} maxLength={200} {...extra}/></label>;
+  return <div className="address-fields"><div className="form-row">{input('recipient','Recipient’s full name',true,{autoComplete:'shipping name',minLength:2})}{input('phone','Delivery mobile number',true,{type:'tel',inputMode:'tel',maxLength:40,autoComplete:'shipping tel',placeholder:'9876543210',pattern:PHONE_INPUT_PATTERN})}</div>{input('line1','House / flat / shop number and building',true,{autoComplete:'shipping address-line1',minLength:1})}{input('line2','Street / area / locality',false,{autoComplete:'shipping address-line2'})}{input('landmark','Nearby landmark',false,{autoComplete:'off'})}<div className="form-row">{input('city','City / town',true,{autoComplete:'shipping address-level2',minLength:2})}{input('district','District',true,{autoComplete:'off',minLength:2})}</div><div className="form-row"><label>State / union territory<select id="delivery-state" name="address.state" autoComplete="shipping address-level1" value={value.state} onChange={e=>onChange({...value,state:e.target.value})} required><option value="">Select state</option>{STATES.map(state=><option key={state}>{state}</option>)}</select></label>{input('pincode','PIN code',true,{autoComplete:'shipping postal-code',inputMode:'numeric',pattern:String.raw`\s*[1-9](?:\s*[0-9]){5}\s*`,maxLength:20,placeholder:'6-digit PIN'})}</div><label>Country<input id="delivery-country" name="address.country" autoComplete="shipping country-name" value="India" readOnly/></label></div>;
 }
-export async function jsonRequest(path:string,init?:RequestInit) {
-  const response=await fetch(path,init); const data=await response.json() as any;
-  if(!response.ok)throw new Error(data.error||'Something went wrong. Please try again.'); return data;
-}
+export {jsonRequest} from '../../lib/client-request';

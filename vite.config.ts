@@ -59,6 +59,7 @@ export default defineConfig(async ({ command }) => {
         inspectorPort: false,
         config: {
           ...localBindingConfig,
+          ...(command === "serve" && !managedLinux ? {vars: {NIRMAAN_LOCAL_PREVIEW: "1"}} : {}),
           ...(command === "serve"
             ? {
                 services: [

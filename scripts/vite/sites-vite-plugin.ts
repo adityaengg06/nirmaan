@@ -1,6 +1,7 @@
 // Vendored from @openai/sites-vite-plugin 0.2.0 (openai/sites#9).
 // See sites-vite-plugin.LICENSE for the upstream MIT license.
 import { access, cp, mkdir, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { resolve } from "node:path";
 import type { Plugin } from "vite";
@@ -9,6 +10,7 @@ const localUserId = "local_seedy";
 const localEmail = "seedy@sites.test";
 const localFullName = "Seedy";
 const localCookieName = "__sites_local_auth";
+const previewEmailCookieName = "__nirmaan_preview_email";
 const localHosts = new Set(["localhost", "127.0.0.1", "::1"]);
 const localAddresses = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 const authPaths = new Set([
@@ -87,8 +89,20 @@ export function sites({ mockAuth = true } = {}): Plugin {
         const signInCookies = cookies
           .filter((cookie) => cookie.startsWith(`${localCookieName}=`))
           .map((cookie) => cookie.slice(localCookieName.length + 1));
+        const previewEmailCookies = cookies
+          .filter((cookie) => cookie.startsWith(`${previewEmailCookieName}=`))
+          .map((cookie) => cookie.slice(previewEmailCookieName.length + 1));
+        let previewEmail: string | null = localEmail;
+        if (previewEmailCookies.length) {
+          try {
+            previewEmail = previewEmailCookies.length === 1
+              ? validPreviewEmail(decodeURIComponent(previewEmailCookies[0]))
+              : null;
+          } catch { previewEmail = null; }
+        }
         const applicationCookies = cookies.filter(
-          (cookie) => !cookie.startsWith(`${localCookieName}=`),
+          (cookie) => !cookie.startsWith(`${localCookieName}=`)
+            && !cookie.startsWith(`${previewEmailCookieName}=`),
         );
         if (applicationCookies.length !== cookies.length) {
           removeHeader(request, "cookie");
@@ -105,13 +119,15 @@ export function sites({ mockAuth = true } = {}): Plugin {
         const signIn = url.pathname === "/signin-with-chatgpt";
         const signOut = url.pathname === "/signout-with-chatgpt";
         if (!signIn && !signOut) {
-          if (signInCookies.length === 1 && signInCookies[0] === "1") {
-            setHeader(request, "oai-authenticated-user-id", localUserId);
-            setHeader(request, "oai-authenticated-user-email", localEmail);
+          if (signInCookies.length === 1 && signInCookies[0] === "1" && previewEmail) {
+            const userId = previewEmail === localEmail ? localUserId
+              : "local_preview_" + createHash("sha256").update(previewEmail).digest("hex");
+            setHeader(request, "oai-authenticated-user-id", userId);
+            setHeader(request, "oai-authenticated-user-email", previewEmail);
             setHeader(
               request,
               "oai-authenticated-user-full-name",
-              localFullName,
+              encodeURIComponent(previewEmail === localEmail ? localFullName : "Preview user"),
             );
             setHeader(
               request,
@@ -155,18 +171,25 @@ export function sites({ mockAuth = true } = {}): Plugin {
           return;
         }
 
+        let selectedEmail = previewEmail || localEmail;
+        if (signIn && url.searchParams.has("preview_email")) {
+          const selections = url.searchParams.getAll("preview_email");
+          const selected = selections.length === 1 ? validPreviewEmail(selections[0]) : null;
+          if (!selected) { respond(response, 400); return; }
+          selectedEmail = selected;
+        }
+
         response.statusCode = request.method === "POST" ? 303 : 302;
         response.setHeader("Cache-Control", "private, no-store");
         response.setHeader(
           "Location",
           safeReturn(url.searchParams.get("return_to")),
         );
-        response.setHeader(
-          "Set-Cookie",
-          `${localCookieName}=${signIn ? "1" : ""}; Path=/; ${
-            signOut ? "Max-Age=0; " : ""
-          }HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`,
-        );
+        const cookieAttributes = `Path=/; ${signOut ? "Max-Age=0; " : ""}HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`;
+        response.setHeader("Set-Cookie", [
+          `${localCookieName}=${signIn ? "1" : ""}; ${cookieAttributes}`,
+          `${previewEmailCookieName}=${signIn ? encodeURIComponent(selectedEmail) : ""}; ${cookieAttributes}`,
+        ]);
         response.end();
       });
     },
@@ -227,4 +250,10 @@ function safeReturn(value: string | null): string {
   } catch {
     return "/";
   }
+}
+
+/** A loopback-only preview identity, never proof that an email is verified. */
+function validPreviewEmail(value: string): string | null {
+  const email = value.trim().toLowerCase();
+  return email.length <= 254 && /^[\x21-\x7e]+$/.test(email) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
 }
