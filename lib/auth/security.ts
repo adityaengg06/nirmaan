@@ -3,14 +3,28 @@ import type {AuthConfig,AuthEnvironment} from './types';
 export const PRIVATE_HEADERS={'Cache-Control':'private, no-store','Pragma':'no-cache','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
 export const SESSION_MS=7*24*60*60*1000;
 export const CHALLENGE_MS=5*60*1000;
+/** Only this explicitly public value may be returned to the browser. */
+function googleClientId(env:AuthEnvironment):string|null {
+  if(env.GOOGLE_CLIENT_ID===undefined||env.GOOGLE_CLIENT_ID==='')return null;
+  if(typeof env.GOOGLE_CLIENT_ID!=='string')throw new AuthError(503,'auth_not_configured','The Google sign-in client ID is invalid.','GOOGLE_CLIENT_ID');
+  const clientId=env.GOOGLE_CLIENT_ID.trim();
+  if(!clientId)return null;
+  if(clientId.length>500||!/^[-_A-Za-z0-9]+\.apps\.googleusercontent\.com$/.test(clientId))throw new AuthError(503,'auth_not_configured','The Google sign-in client ID is invalid.','GOOGLE_CLIENT_ID');
+  return clientId;
+}
+export function publicGoogleConfiguration(env:AuthEnvironment):{clientId:string} {
+  const clientId=googleClientId(env);
+  if(!clientId)throw new AuthError(503,'auth_not_configured','Configure the Google web client ID before signing in.','GOOGLE_CLIENT_ID');
+  return {clientId};
+}
 export function configuration(env:AuthEnvironment):AuthConfig {
-  if(!env.DB||!env.APP_ORIGIN)throw new AuthError(503,'auth_not_configured','Secure sign-in is not configured.');
-  let url:URL;try{url=new URL(env.APP_ORIGIN)}catch{throw new AuthError(503,'auth_not_configured','The application origin is not configured correctly.')}
+  if(!env.DB)throw new AuthError(503,'auth_not_configured','The sign-in account database is not connected.','DB');
+  if(typeof env.APP_ORIGIN!=='string'||!env.APP_ORIGIN.trim())throw new AuthError(503,'auth_not_configured','The application sign-in URL is not configured.','APP_ORIGIN');
+  let url:URL;try{url=new URL(env.APP_ORIGIN.trim())}catch{throw new AuthError(503,'auth_not_configured','The application sign-in URL is invalid.','APP_ORIGIN')}
   const loopback=['localhost','127.0.0.1','[::1]'].includes(url.hostname);
   const development=env.AUTH_ENV==='development'&&url.protocol==='http:'&&loopback;
-  if((url.protocol!=='https:'&&!development)||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw new AuthError(503,'auth_not_configured','Use an HTTPS application origin. HTTP is allowed only for explicit loopback development.');
-  const clientId=typeof env.GOOGLE_CLIENT_ID==='string'&&env.GOOGLE_CLIENT_ID.trim().length<=500?env.GOOGLE_CLIENT_ID.trim():null;
-  return {db:env.DB,origin:url.origin,development,clientId:clientId||null};
+  if((url.protocol!=='https:'&&!development)||url.username||url.password||url.pathname!=='/'||url.search||url.hash)throw new AuthError(503,'auth_not_configured','Use an HTTPS application origin. HTTP is allowed only for explicit loopback development.','APP_ORIGIN');
+  return {db:env.DB,origin:url.origin,development,clientId:googleClientId(env)};
 }
 export function cookieName(config:AuthConfig,kind:'session'|'challenge') {return config.development?'nirmaan_dev_'+kind:'__Host-nirmaan_'+kind}
 export function cookie(config:AuthConfig,kind:'session'|'challenge',token:string,maxAge:number) {return cookieName(config,kind)+'='+token+'; Path=/; HttpOnly; SameSite=Lax; Max-Age='+maxAge+(config.development?'':'; Secure')}
@@ -39,4 +53,4 @@ export async function jsonBody(request:Request):Promise<Record<string,unknown>> 
   try{const value:unknown=JSON.parse(new TextDecoder().decode(bytes));if(!value||typeof value!=='object'||Array.isArray(value))throw new Error();return value as Record<string,unknown>}catch{throw new AuthError(400,'invalid_request','The JSON request is invalid.')}
 }
 export function json(value:unknown,status=200,cookies:string[]=[]) {const headers=new Headers(PRIVATE_HEADERS);for(const value of cookies)headers.append('Set-Cookie',value);return Response.json(value,{status,headers})}
-export function failure(error:unknown,cookies:string[]=[]) {return error instanceof AuthError?json({error:error.code,message:error.message},error.status,cookies):json({error:'auth_unavailable',message:'Secure sign-in is temporarily unavailable. Please try again.'},503,cookies)}
+export function failure(error:unknown,cookies:string[]=[]) {return error instanceof AuthError?json({error:error.code,message:error.message,...(error.configuration?{configuration:error.configuration}:{})},error.status,cookies):json({error:'auth_unavailable',message:'Secure sign-in is temporarily unavailable. Please try again.'},503,cookies)}

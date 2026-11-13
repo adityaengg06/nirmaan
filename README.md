@@ -13,6 +13,12 @@ npm run dev
 
 Open `http://localhost:5173`. Authentication uses Google Identity Services and Worker-verified sessions, without a fake preview identity. Copy `.dev.vars.example` to ignored `.dev.vars`, set the Google Web client ID and apply missing local migrations. See [GOOGLE_AUTH.md](GOOGLE_AUTH.md) for origins, variables, legacy-account approvals and proposed release commands.
 
+## Production Google sign-in configuration
+
+Configure `GOOGLE_CLIENT_ID` as a runtime variable on the deployed Cloudflare Worker, plus the existing D1 binding named `DB`. The client ID alone cannot configure the origin or database. Production builds declare `AUTH_ENV=production` and the user-confirmed canonical origin `APP_ORIGIN=https://nirmaan.proaura.site`; they never bake the client ID or a process-environment origin into production. For the current older deployment, a missing runtime `APP_ORIGIN` can be corrected to that same HTTPS origin before a later approved code deployment. Local `.dev.vars` and Cloudflare build variables are not a substitute for production runtime settings, and a deployment marked Ready does not validate them.
+
+The new `/api/auth/config` returns the validated public client ID independently of database/origin readiness; an older deployment returns `404` until that diagnostic is published. `/api/auth/session` is read-only, while `/api/auth/challenge` creates a short-lived challenge when testing sign-in. See [the production troubleshooting steps](GOOGLE_AUTH.md#production-setup-and-readiness-checks) for field-specific configuration errors. This configuration fix adds no migration and does not require a Google client secret.
+
 ## Pages
 
 - `/create-account` — secure sign-in, required business profile and delivery address

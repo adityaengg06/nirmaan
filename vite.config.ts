@@ -40,9 +40,19 @@ export default defineConfig(async ({ command }) => {
   // Local HTTP is explicit development only. Every production build defaults
   // to secure production auth and never inherits a local mock identity.
   const developmentAuth = command === "serve" && (process.env.AUTH_ENV === undefined || process.env.AUTH_ENV === "development");
-  const authVars: Record<string, string> = {AUTH_ENV: developmentAuth ? "development" : "production"};
-  const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
-  const appOrigin = process.env.APP_ORIGIN?.trim() || (developmentAuth ? "http://localhost:5173" : "");
+  const authVars: Record<string, string> = {
+    AUTH_ENV: developmentAuth ? "development" : "production",
+    // Public, user-confirmed canonical origin. Keep CSRF checks tied to this
+    // trusted URL rather than deriving it from request headers.
+    ...(command === "build" ? {APP_ORIGIN: "https://nirmaan.proaura.site"} : {}),
+  };
+  // The Google client ID belongs to Worker runtime settings.
+  // Baking CI process.env values into vars would overwrite dashboard settings
+  // on the next deployment even with keep_vars enabled.
+  const clientId = command === "serve" ? process.env.GOOGLE_CLIENT_ID?.trim() : undefined;
+  const appOrigin = command === "serve"
+    ? process.env.APP_ORIGIN?.trim() || (developmentAuth ? "http://localhost:5173" : "")
+    : undefined;
   if (clientId) authVars.GOOGLE_CLIENT_ID = clientId;
   if (appOrigin) {
     const origin = new URL(appOrigin);

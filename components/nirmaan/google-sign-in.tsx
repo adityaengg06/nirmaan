@@ -26,12 +26,15 @@ export default function GoogleSignIn({returnTo='/account'}:{returnTo?:string}){
     setError('');setStatus('Loading Google sign-in…');
     async function start(){
       try{
+        // The deployed Worker's runtime env supplies the public client ID.
+        // Vite build variables and client secrets are never read here.
+        const config=await jsonRequest('/api/auth/config',{signal:controller.signal});
         const challenge=await jsonRequest('/api/auth/challenge',{signal:controller.signal});
         if(!active)return;
-        if(!challenge.clientId||!challenge.nonce||!challenge.csrfToken)throw new Error('Google sign-in needs to be configured by the NIRMAAN team.');
+        if(!config.clientId||config.clientId!==challenge.clientId||!challenge.nonce||!challenge.csrfToken)throw new Error('Google sign-in needs to be configured by the NIRMAAN team.');
         await loadGoogle();if(!active||!host.current)return;
         const identity=window.google!.accounts.id;
-        identity.initialize({client_id:challenge.clientId,nonce:challenge.nonce,auto_select:false,ux_mode:'popup',callback:response=>{
+        identity.initialize({client_id:config.clientId,nonce:challenge.nonce,auto_select:false,ux_mode:'popup',callback:response=>{
           if(!active||inFlight.current)return;
           inFlight.current=true;setBusy(true);setError('');setStatus('Verifying your Google account…');
           void jsonRequest('/api/auth/google',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credential:response.credential,csrfToken:challenge.csrfToken})}).then(()=>{

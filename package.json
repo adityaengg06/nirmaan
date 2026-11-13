@@ -15,7 +15,8 @@
     "test:auth": "node scripts/check-google-auth.mjs",
     "test:account": "node --experimental-strip-types scripts/check-account-validation.mjs",
     "test:auth:browser": "node scripts/check-google-browser.mjs",
-    "test:auth:integration": "node scripts/check-cloudflare-auth-integration.mjs"
+    "test:auth:integration": "node scripts/check-cloudflare-auth-integration.mjs",
+    "test:auth:config": "node scripts/check-auth-runtime-config.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

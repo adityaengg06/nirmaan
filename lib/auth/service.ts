@@ -1,7 +1,7 @@
 import type {AuthEnvironment,AuthOptions,AuthConfig,AuthUser,GoogleIdentity} from './types';
 import {AuthError} from './types';
 import {verifyGoogleCredential} from './google';
-import {configuration,cookieName,cookie,readCookie,randomToken,hashToken,equalTokens,requireRequestOrigin,jsonBody,json,failure,SESSION_MS,CHALLENGE_MS} from './security';
+import {configuration,publicGoogleConfiguration,cookieName,cookie,readCookie,randomToken,hashToken,equalTokens,requireRequestOrigin,jsonBody,json,failure,SESSION_MS,CHALLENGE_MS} from './security';
 export type {AuthEnvironment,AuthUser,AuthOptions} from './types';
 
 type Challenge={challenge_hash:string;nonce:string;csrf_token:string;expires_at:number;created_at:number};
@@ -20,7 +20,7 @@ export function createAuthService(options:AuthOptions={}) {
     try{const session=await loadSession(headersOf(input),configuration(env));return session?authUser(session):null}catch{return null}
   }
   async function challenge(request:Request,config:AuthConfig) {
-    if(!config.clientId)throw new AuthError(503,'auth_not_configured','Configure the Google web client ID before signing in.');
+    if(!config.clientId)throw new AuthError(503,'auth_not_configured','Configure the Google web client ID before signing in.','GOOGLE_CLIENT_ID');
     const token=randomToken(),nonce=randomToken(),csrfToken=randomToken(),createdAt=now();
     const previous=readCookie(request.headers,cookieName(config,'challenge'));
     const statements=[config.db.prepare('DELETE FROM auth_challenges WHERE expires_at<=?').bind(createdAt)];
@@ -49,7 +49,7 @@ export function createAuthService(options:AuthOptions={}) {
     return null;
   }
   async function googleSignIn(request:Request,config:AuthConfig) {
-    if(!config.clientId)throw new AuthError(503,'auth_not_configured','Configure the Google web client ID before signing in.');
+    if(!config.clientId)throw new AuthError(503,'auth_not_configured','Configure the Google web client ID before signing in.','GOOGLE_CLIENT_ID');
     const body=await jsonBody(request),token=readCookie(request.headers,cookieName(config,'challenge'));
     const headerCsrf=request.headers.get('x-csrf-token');
     if(headerCsrf&&body.csrfToken!==undefined&&headerCsrf!==body.csrfToken)throw new AuthError(403,'invalid_csrf','Start sign-in again from this browser.');
@@ -91,11 +91,14 @@ export function createAuthService(options:AuthOptions={}) {
   }
   async function handleAuthRequest(request:Request,env:AuthEnvironment):Promise<Response|null> {
     const path=new URL(request.url).pathname;
-    if(!['/api/auth/challenge','/api/auth/google','/api/auth/session','/api/auth/logout'].includes(path))return null;
+    if(!['/api/auth/config','/api/auth/challenge','/api/auth/google','/api/auth/session','/api/auth/logout'].includes(path))return null;
     try {
-      const config=configuration(env);
-      const expected=path==='/api/auth/challenge'||path==='/api/auth/session'?'GET':'POST';
+      const expected=path==='/api/auth/config'||path==='/api/auth/challenge'||path==='/api/auth/session'?'GET':'POST';
       if(request.method!==expected)return json({error:'method_not_allowed',message:'Method not allowed.'},405);
+      // Public, read-only runtime configuration; no cookies, credentials or
+      // database access. Login still requires the configured trusted origin.
+      if(path==='/api/auth/config')return json(publicGoogleConfiguration(env));
+      const config=configuration(env);
       requireRequestOrigin(request,config,expected==='POST');
       if(path==='/api/auth/challenge')return await challenge(request,config);
       if(path==='/api/auth/google')return await googleSignIn(request,config);

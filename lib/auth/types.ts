@@ -5,5 +5,5 @@ export type AuthOptions = {googleKeySet?:JWTVerifyGetKey;now?:()=>number};
 export type AuthConfig = {db:D1Database;origin:string;development:boolean;clientId:string|null};
 export type GoogleIdentity = {sub:string;email:string;fullName:string|null};
 export class AuthError extends Error {
-  constructor(readonly status:number,readonly code:string,message:string){super(message);this.name='AuthError'}
+  constructor(readonly status:number,readonly code:string,message:string,readonly configuration?:'DB'|'APP_ORIGIN'|'GOOGLE_CLIENT_ID'){super(message);this.name='AuthError'}
 }
