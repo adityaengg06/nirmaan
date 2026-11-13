@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { getChatGPTUser } from '../../chatgpt-auth';
+import { getCurrentUser } from '../../auth';
 import { getDb } from '../../../db';
 import { artwork, profiles } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
@@ -8,7 +8,7 @@ import { sameOrigin } from '../../../lib/commerce';
 const TYPES = ['image/png','image/jpeg','image/webp','application/pdf'];
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return error('Forbidden',403);
-  const user = await getChatGPTUser(); if (!user) return error('Create an account first.',401);
+  const user = await getCurrentUser(); if (!user) return error('Create an account first.',401);
   if (!(await getDb().select().from(profiles).where(eq(profiles.userId,user.userId)))[0]) return error('Complete your NIRMAAN account first.',403);
   if (Number(request.headers.get('content-length') || 0) > 11_000_000) return error('Use a file under 10 MB.',413);
   const data = await request.formData(); const file = data.get('file'); const kind = data.get('kind');
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   return Response.json({id,filename,kind});
 }
 export async function GET(request: Request) {
-  const user = await getChatGPTUser(); if (!user) return error('Sign in required.',401);
+  const user = await getCurrentUser(); if (!user) return error('Sign in required.',401);
   const id = new URL(request.url).searchParams.get('id') || '';
   const row = (await getDb().select().from(artwork).where(eq(artwork.id,id)))[0];
   if (!row || (row.userId !== user.userId && !isAdmin(user.email))) return error('Not found.',404);

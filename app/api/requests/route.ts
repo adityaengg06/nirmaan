@@ -1,5 +1,5 @@
 import {getDesigns,printSpecification} from '../../../lib/designs';
-import { getChatGPTUser } from '../../chatgpt-auth';
+import { getCurrentUser } from '../../auth';
 import { getDb } from '../../../db';
 import { requests, profiles, artwork } from '../../../db/schema';
 import { eq, desc, and } from 'drizzle-orm';
@@ -8,7 +8,7 @@ import { addMonths, POLICY_VERSION, PRODUCT_IDS, RENEWALS, sameOrigin, STARTER_A
 import { error, isAdmin } from '../../../lib/commerce-server';
 export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
-  const user = await getChatGPTUser(); if (!user) return error('Please sign in.',401);
+  const user = await getCurrentUser(); if (!user) return error('Please sign in.',401);
   const all = new URL(request.url).searchParams.get('admin') === '1';
   if (all && !isAdmin(user.email)) return error('Administrator access is restricted to the authorized business email.',403);
   const db = getDb();
@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 }
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return error('Forbidden',403);
-  const user = await getChatGPTUser(); if (!user) return error('Create your account before placing an order.',401);
+  const user = await getCurrentUser(); if (!user) return error('Create your account before placing an order.',401);
   let body: Record<string, any>; try { body = await request.json() as Record<string,any>; } catch { return error('Invalid request.'); }
   if (!body || typeof body !== 'object' || Array.isArray(body)) return error('Invalid request.');
   const {kind} = body; const details = body.details;
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
 }
 export async function PATCH(request: Request) {
   if (!sameOrigin(request)) return error('Forbidden',403);
-  const user = await getChatGPTUser(); if (!user) return error('Sign in required.',401);
+  const user = await getCurrentUser(); if (!user) return error('Sign in required.',401);
   let body: Record<string,any>; try { body = await request.json() as Record<string,any>; } catch { return error('Invalid request.'); }
   if (!body || typeof body !== 'object' || Array.isArray(body)) return error('Invalid request.');
   const db = getDb(); const row = (await db.select().from(requests).where(eq(requests.id,String(body.id))))[0];

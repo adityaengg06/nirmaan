@@ -1,0 +1,7 @@
+# Copy to .dev.vars for local development; never commit the real file.
+# Use a Web application OAuth client ID from Google Cloud Console.
+GOOGLE_CLIENT_ID=""
+APP_ORIGIN="http://localhost:5173"
+AUTH_ENV="development"
+# Optional local-only administrative Google account; production keeps its owner.
+# ADMIN_EMAIL="you@example.com"

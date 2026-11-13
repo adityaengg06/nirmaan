@@ -1,6 +1,6 @@
 import {env} from 'cloudflare:workers';
 import {eq,and,desc} from 'drizzle-orm';
-import {getChatGPTUser} from '../../chatgpt-auth';
+import {getCurrentUser} from '../../auth';
 import {getDb} from '../../../db';
 import {requests,studentRecords} from '../../../db/schema';
 import {sameOrigin} from '../../../lib/commerce';
@@ -8,7 +8,7 @@ import {error,isAdmin} from '../../../lib/commerce-server';
 export const dynamic='force-dynamic';
 function active(order:typeof requests.$inferSelect|undefined){return !!order&&order.kind==='order'&&order.status==='active'&&!!order.paymentVerifiedAt&&!!order.expiresAt&&Date.parse(order.expiresAt)>Date.now()&&JSON.parse(order.details).product==='id-card'&&JSON.parse(order.details).idExperience==='student-portal';}
 export async function GET(request:Request){
- const user=await getChatGPTUser();if(!user)return error('Sign in to access student records.',401);
+ const user=await getCurrentUser();if(!user)return error('Sign in to access student records.',401);
  const db=getDb();const id=new URL(request.url).searchParams.get('id');
  if(id){const row=(await db.select().from(studentRecords).where(eq(studentRecords.id,id)))[0];if(!row||(row.issuerId!==user.userId&&row.studentEmail!==user.email.toLowerCase()&&!isAdmin(user.email)))return error('This record is not available to your account.',404);const order=(await db.select().from(requests).where(eq(requests.id,row.orderId)))[0];if(!active(order))return error('The institution’s ID service needs activation or renewal.',410);return Response.json({record:{id:row.id,name:row.name,studentId:row.studentId,className:row.className,organization:order.business,studentEmail:row.studentEmail,updatedAt:row.updatedAt,...JSON.parse(row.data)}},{headers:{'Cache-Control':'private, no-store'}});}
  const orders=isAdmin(user.email)?await db.select().from(requests).where(eq(requests.kind,'order')):await db.select().from(requests).where(and(eq(requests.kind,'order'),eq(requests.userId,user.userId)));
@@ -17,7 +17,7 @@ export async function GET(request:Request){
  return Response.json({orders:eligible.map(o=>({id:o.id,business:o.business,quantity:JSON.parse(o.details).quantity||1,expiresAt:o.expiresAt})),records:records.map(r=>({...r,...JSON.parse(r.data)}))},{headers:{'Cache-Control':'private, no-store'}});
 }
 export async function POST(request:Request){
- if(!sameOrigin(request))return error('Forbidden',403);const user=await getChatGPTUser();if(!user)return error('Sign in required.',401);
+ if(!sameOrigin(request))return error('Forbidden',403);const user=await getCurrentUser();if(!user)return error('Sign in required.',401);
  let b:any;try{b=await request.json()}catch{return error('Invalid record.');}
  if(!b||typeof b!=='object'||Array.isArray(b))return error('Invalid record.');
  const validString=(v:unknown,max:number)=>typeof v==='string'&&v.trim().length>=2&&v.length<=max;

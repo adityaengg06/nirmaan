@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:workers';
-import { getChatGPTUser } from '../../chatgpt-auth';
+import { getCurrentUser } from '../../auth';
 import { getDb } from '../../../db';
 import { requests } from '../../../db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -7,7 +7,7 @@ import { error, isAdmin } from '../../../lib/commerce-server';
 import { sameOrigin } from '../../../lib/commerce';
 export async function POST(request:Request) {
   if (!sameOrigin(request)) return error('Forbidden',403);
-  const user=await getChatGPTUser(); if(!user) return error('Sign in required.',401);
+  const user=await getCurrentUser(); if(!user) return error('Sign in required.',401);
   if(Number(request.headers.get('content-length')||0)>6_000_000) return error('Use an image under 5 MB.',413);
   const data=await request.formData();const id=String(data.get('id')||'');const file=data.get('file');
   const row=(await getDb().select().from(requests).where(eq(requests.id,id)))[0];
@@ -22,7 +22,7 @@ export async function POST(request:Request) {
   return Response.json({ok:true});
 }
 export async function GET(request:Request) {
-  const user=await getChatGPTUser();if(!user)return error('Sign in required.',401);
+  const user=await getCurrentUser();if(!user)return error('Sign in required.',401);
   const id=new URL(request.url).searchParams.get('id')||'';const row=(await getDb().select().from(requests).where(eq(requests.id,id)))[0];
   if(!row||(row.userId!==user.userId&&!isAdmin(user.email)))return error('Forbidden',403);
   const file=await env.BUCKET!.get('receipts/'+id);if(!file)return error('No payment proof uploaded.',404);

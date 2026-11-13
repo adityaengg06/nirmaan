@@ -1,7 +1,8 @@
-// Browser QA uses synthetic identities only against the local built server.
+// Browser QA uses synthetic D1 session fixtures only against the local server.
 import assert from 'node:assert/strict';
+import {createLocalAuthFixtures} from './helpers/auth-fixtures.mjs';
 import {writeFile,mkdir,readFile} from 'node:fs/promises';
-const base='http://127.0.0.1:5173';
+const base='http://localhost:5173';
 const tabs=await (await fetch('http://127.0.0.1:9223/json/list')).json();
 const tab=await (await fetch('http://127.0.0.1:9223/json/new?about:blank',{method:'PUT'})).json();
 const socket=new WebSocket(tab.webSocketDebuggerUrl);await new Promise(r=>socket.addEventListener('open',r,{once:true}));
@@ -15,7 +16,7 @@ async function visit(path){await cdp('Page.navigate',{url:base+path});await wait
 async function shot(name){const result=await cdp('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile('outputs/'+name+'.png',Buffer.from(result.data,'base64'));}
 
 
-await mkdir('outputs',{recursive:true});await cdp('Page.enable');await cdp('Network.enable');await cdp('Runtime.enable');
+await mkdir('outputs',{recursive:true});await cdp('Page.enable');await cdp('Page.bringToFront');await cdp('Network.enable');await cdp('Runtime.enable');
 const errors=[];socket.addEventListener('message',event=>{const m=JSON.parse(event.data);if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails.exception?.description||m.params.exceptionDetails.text)});
 await cdp('Network.clearBrowserCookies');await cdp('Page.addScriptToEvaluateOnNewDocument',{source:"sessionStorage.setItem('nirmaan-intro-seen-v1','1');window.__unhandled=[];window.addEventListener('unhandledrejection',e=>window.__unhandled.push(String(e.reason)))"});
 async function noUnhandled(){assert.deepEqual(await evaluate('window.__unhandled||[]'),[]);assert.equal(errors.length,0,errors.join('\n'));}
@@ -27,19 +28,23 @@ if(process.env.NIRMAAN_QA_SKIP_LAYOUTS!=='1')for(const width of [320,360,390,430
  for(const path of ['/menu','/id-card','/designs/menu','/upload-design','/design-studio?product=business','/create-account']){await visit(path);await noUnhandled();if(width===390&&path==='/designs/menu')await shot('mobile-final-gallery');}
  console.log('PASS phone layouts and navigation: '+width+'px');
 }
-// Complete the actual local account form, using a separate preview identity.
+// Complete the actual local account form using an explicitly seeded QA session.
+// This test fixture does not add an application authentication bypass.
 await cdp('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
 const email='mobile-qa-'+crypto.randomUUID()+'@example.test';
-await visit('/create-account?product=menu&design=menu-espresso-bar&upload=1');await evaluate("document.querySelector('.signup-card a[href^=\"/signin-with-chatgpt\"]').click()");await waitFor("!!document.querySelector('.preview-email-apply')");assert(!await evaluate("document.querySelector('.signup-card input[name=email]').readOnly"));await setField('email',email);assert(await evaluate("document.querySelector('.signup-card button[type=submit],.signup-card form>button:last-child').disabled"));await evaluate("document.querySelector('.preview-email-apply').click()");await waitFor('document.querySelector(\'.signup-card input[name=email]\')?.value==='+JSON.stringify(email));
+const fixtures=await createLocalAuthFixtures();
+const authHeaders=fixtures.headersFor({'oai-authenticated-user-id':'browser-qa-'+crypto.randomUUID(),'oai-authenticated-user-email':email});
+const cookie=authHeaders.Cookie.split('=');await cdp('Network.setCookie',{name:cookie[0],value:cookie[1],url:base,httpOnly:true,sameSite:'Lax'});
+await visit('/create-account?product=menu&design=menu-espresso-bar&upload=1');await waitFor("!!document.querySelector('.signup-card input[name=email]')");assert(await evaluate("document.querySelector('.signup-card input[name=email]').readOnly"));assert.equal(await evaluate("document.querySelector('.signup-card input[name=email]').value"),email);
 for(const [name,value]of Object.entries({name:'Mobile QA',phone:'+91 80529 67633',business:'Mobile QA Cafe','address.line1':'5','address.city':'Lucknow','address.district':'Lucknow','address.state':'Uttar Pradesh','address.pincode':'226 001 '}))await setField(name,value);
 assert.equal(await evaluate("document.querySelector('[name=\"address.recipient\"]').value"),'Mobile QA');assert.equal(await evaluate("document.querySelector('[name=\"address.phone\"]').value"),'8052967633');
 assert(await evaluate("document.querySelector('.signup-card form').checkValidity()"),await evaluate("JSON.stringify(Array.from(document.querySelectorAll('.signup-card input:invalid,.signup-card select:invalid')).map(e=>({name:e.name,message:e.validationMessage})))"));
 await evaluate("document.querySelector('.signup-card form').requestSubmit()");await waitFor("location.pathname==='/checkout'&&!!document.querySelector('.checkout-form')");assert.equal(await evaluate("new URLSearchParams(location.search).get('product')"),'menu');
 const saved=await evaluate("fetch('/api/profile').then(r=>r.json()).then(d=>({email:d.email,phone:d.profile.phone,pincode:d.profile.address.pincode,house:d.profile.address.line1}))");assert.deepEqual(saved,{email,phone:'8052967633',pincode:'226001',house:'5'});assert(await evaluate("parseFloat(getComputedStyle(document.querySelector('.checkout-form input[type=url]')).fontSize)>=16"));
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j2ioAAAAASUVORK5CYII=','base64');await writeFile('outputs/mobile-upload.png',png);const input=await cdp('Runtime.evaluate',{expression:"document.querySelector('.checkout-form input[type=file][accept*=\\\"application/pdf\\\"]')"});assert(!input.exceptionDetails,input.exceptionDetails?.text);await cdp('DOM.setFileInputFiles',{objectId:input.result.objectId,files:[process.cwd()+'/outputs/mobile-upload.png']});await waitFor("!!document.querySelector('.checkout-preview .uploaded-design-preview')");await noUnhandled();
-for(let i=0;i<3;i++){await visit('/account');await waitFor("!!document.querySelector('.account-summary')");await evaluate("document.querySelector('.dashboard-top-actions button').click()");await waitFor("!document.querySelector('.loading-message')");await noUnhandled();}
+for(let i=0;i<3;i++){await visit('/account');await waitFor("!!document.querySelector('.account-summary')");await evaluate("Array.from(document.querySelectorAll('.dashboard-top-actions button')).find(button=>button.textContent.includes('Refresh')).click()");await waitFor("!document.querySelector('.loading-message')");await noUnhandled();}
 await shot('mobile-final-account');
 // A failed account request must render a useful retry message, not reject globally.
 const intercept=event=>{const m=JSON.parse(event.data);if(m.method==='Fetch.requestPaused')cdp('Fetch.fulfillRequest',{requestId:m.params.requestId,responseCode:503,responseHeaders:[{name:'Content-Type',value:'application/json'}],body:''}).catch(()=>{})};socket.addEventListener('message',intercept);await cdp('Fetch.enable',{patterns:[{urlPattern:base+'/api/profile',requestStage:'Request'}]});await visit('/account');await waitFor("document.body.innerText.includes('temporarily unavailable')");await noUnhandled();await cdp('Fetch.disable');socket.removeEventListener('message',intercept);await visit('/account');await waitFor("!!document.querySelector('.account-summary')");await noUnhandled();
 await visit('/upload-design');assert.equal(await evaluate("document.querySelectorAll('.upload-chat-only input:not([type=file]),.upload-chat-only form').length"),0);const galleryInput=await cdp('Runtime.evaluate',{expression:"document.querySelector('.gallery-upload-buttons input')"});await cdp('DOM.setFileInputFiles',{objectId:galleryInput.result.objectId,files:[process.cwd()+'/outputs/mobile-upload.png']});await waitFor("!!document.querySelector('.upload-image-preview>img')");assert(await evaluate("document.querySelector('.upload-image-preview a').href.startsWith('https://wa.me/918052967633')"));await shot('mobile-final-upload');await noUnhandled();
-await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});await visit('/');assert.equal(await evaluate("getComputedStyle(document.querySelector('.home-compact-grid')).gridTemplateColumns.split(' ').length"),5);assert.equal(await evaluate("getComputedStyle(document.querySelector('.mobile-toggle')).display"),'none');await shot('desktop-final-home');await noUnhandled();socket.close();console.log('PASS: phone account creation with formatted values and preview-email switching, private design upload/preview, account refreshes and failed-request handling without rejected promises, no-form WhatsApp upload, and desktop layout.');
+await cdp('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});await visit('/');assert.equal(await evaluate("getComputedStyle(document.querySelector('.home-compact-grid')).gridTemplateColumns.split(' ').length"),5);assert.equal(await evaluate("getComputedStyle(document.querySelector('.mobile-toggle')).display"),'none');await shot('desktop-final-home');await noUnhandled();fixtures.close();socket.close();console.log('PASS: phone account creation with formatted values and real session fixtures, private design upload/preview, account refreshes and failed-request handling without rejected promises, no-form WhatsApp upload, and desktop layout.');

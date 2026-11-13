@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by the dev server (normally http://localhost:5173). The Sites starter provides a local-only sign-in identity, `seedy@sites.test`; use the **Continue with ChatGPT** button to sign in locally, then complete the NIRMAAN account form. Hosted sign-in uses the actual Sites identity.
+Open `http://localhost:5173`. Authentication uses Google Identity Services and Worker-verified sessions, without a fake preview identity. Copy `.dev.vars.example` to ignored `.dev.vars`, set the Google Web client ID and apply missing local migrations. See [GOOGLE_AUTH.md](GOOGLE_AUTH.md) for origins, variables, legacy-account approvals and proposed release commands.
 
 ## Pages
 
@@ -38,7 +38,7 @@ Review/menu/social/custom display dimensions and materials are agreed in the quo
 
 ## Administrator & payments
 
-Administrator email: `buisness.aditya2006@gmail.com`. `ADMIN_EMAIL` can override it in server runtime configuration. For a local admin preview only, configure this variable with the local test identity using your local Worker environment configuration. Never change production authorization to a test identity.
+Administrator email: `buisness.aditya2006@gmail.com`. `ADMIN_EMAIL` can override it in server runtime configuration. For local administrative testing, set this variable in `.dev.vars` to a Google account you control. Keep the intended business administrator in production.
 
 WhatsApp: **+91 80529 67633**. WhatsApp links open a prefilled chat; visitors send messages themselves. Demo dates/times are IST and require business confirmation.
 
@@ -48,7 +48,7 @@ Admin can add the UPI ID and payee name through **UPI payment details**. These v
 
 The app uses Vinext/React on Cloudflare Workers, D1 for profiles/orders/settings and R2 for uploads. Customer files and records are authorized server-side. Designs accept JPG, PNG, WebP or PDF up to 10 MB; logos/photos accept image formats. Payment proof accepts JPG, PNG or WebP up to 5 MB. Upload file signatures are checked.
 
-Migrations are generated using `npm run db:generate`. Hosting applies them during publication. Local migrations must be applied once to your separate local D1 state after building:
+Migrations are generated using `npm run db:generate`. Standalone Worker releases require an approved application of pending remote migrations; see [GOOGLE_AUTH.md](GOOGLE_AUTH.md). Local migrations must be applied once to your separate local D1 state after building:
 
 ```sh
 npm run build
@@ -63,13 +63,13 @@ Do not replay a migration already applied to your local database.
 ```sh
 npx tsc --noEmit
 npm run build
-npm start -- --port 8787
-node scripts/check-local.mjs
+node scripts/check-google-auth.mjs
+node --experimental-strip-types scripts/check-account-validation.mjs
 ```
 
-Integration checks use synthetic identities against localhost only. `scripts/check-browser.mjs` additionally checks mobile checkout and product pages through a local Chrome DevTools endpoint at port 9223; screenshots go to ignored `outputs/`. Restart the production preview after rebuilding so it uses the matching asset manifest.
+Google auth tests use ephemeral SQLite and cryptographic fixtures, never production users or a remote database. Old checks that inject Sites/mock identity headers no longer authenticate this Worker. Current authentication setup and verification are in [GOOGLE_AUTH.md](GOOGLE_AUTH.md). Screenshots go to ignored `outputs/`; restart built previews after rebuilding to match the asset manifest.
 
-The development server can remain running while you edit. Use the tracked `.openai/hosting.json` Site identity for publication. Keep credentials, `.env*`, receipts, local database state and build output out of Git. New hosted Sites remain private until their audience is changed explicitly.
+The development server can remain running while you edit. Keep real `.env*`/`.dev.vars*`, receipts, local database state and build output out of Git; `.dev.vars.example` is a blank setup template. Standalone Worker migration/deployment commands in [GOOGLE_AUTH.md](GOOGLE_AUTH.md) require a separate release approval. Existing hosted Site access is unchanged.
 
 ## Design collections and product previews
 
@@ -89,16 +89,9 @@ At checkout, an ID-card buyer can select the secure student portal rather than a
 4. Student records are accessible only to the assigned email, the issuing institution and authorized administrator. The student does not need a purchasing profile to view their assigned record.
 5. Results, fees and attendance are maintained manually by the institution. The card does not mark attendance, collect tuition payments or synchronize external school software automatically.
 
-The local schema adds `drizzle/0002_condemned_nitro.sql`; apply it once using the same local migration command shown above. Hosting applies the pending migration on publication. No sample student data is seeded into production.
+The local schema adds `drizzle/0002_condemned_nitro.sql`; apply it once using the same local migration command shown above. Apply pending production migrations during an approved release. No sample student data is seeded into production.
 
-Additional local verification:
-
-```sh
-node scripts/check-catalog.mjs
-node scripts/check-catalog-browser.mjs
-```
-
-The browser check uses the synthetic local fixtures generated by the catalog check and a Chrome DevTools endpoint on port 9223. It verifies the opening and product animations, template selection, Studio artwork export, direct upload/chat, responsive layouts and navigation errors. `check-themes-browser.mjs` checks all 25 designs per category across the three gallery pages.
+Historical catalog/browser scripts are retained for reference. They use the retired mock-auth fixtures; injected identity headers are rejected by Google auth. Current authentication verification is documented in [GOOGLE_AUTH.md](GOOGLE_AUTH.md). Public design/animation checks use a local Chrome DevTools endpoint on port 9223.
 
 ## Business/event previews and printing rules
 
@@ -149,6 +142,6 @@ Full galleries paginate 10 + 10 + 5 designs. The homepage remains a compact two-
 
 ## Release checks and launch setup
 
-The final release checks cover TypeScript/build, authenticated checkout and quotation, upload ownership, print rules, student record isolation, all 25 themes per category, browser animations and Studio export. `node scripts/check-release.mjs` (after `check-catalog.mjs`) also verifies private/no-store account responses and concurrent renewal approvals: both paid periods are credited without overwriting each other. All fixtures stay in the local database.
+Existing commerce regressions cover quotation, upload ownership, printing rules, student records, themes and renewals. Their old header-auth fixtures are historical; current Google-session tests and manual provider verification are described in [GOOGLE_AUTH.md](GOOGLE_AUTH.md). Test fixtures stay local or in ephemeral SQLite, never the production database.
 
-The hosted Site retains its existing owner-only audience. Before opening customer access, configure the intended audience in Sites and sign in with the administrator email above. Set the real UPI ID and payee name in `/admin` before requesting payments. No payment gateway, bank secrets, sample receipts or test customer records are included in the deployment.
+Standalone Worker sign-in requires the Google Web client, exact app origin, production auth mode and additive auth migration described in [GOOGLE_AUTH.md](GOOGLE_AUTH.md). Existing hosted Site access is unchanged. Add the actual UPI ID/payee name in `/admin` before requesting payments. No payment gateway, bank secrets, sample receipts or test customer records are seeded by this change.

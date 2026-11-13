@@ -10,6 +10,6 @@ export async function jsonRequest(path:string,init?:RequestInit):Promise<any>{
   let data:any;
   try{data=await response.json()}catch{throw new Error(fallback)}
   if(!data||typeof data!=='object')throw new Error(fallback);
-  if(!response.ok)throw new Error(typeof data.error==='string'?data.error:fallback);
+  if(!response.ok)throw new Error(typeof data.message==='string'?data.message:typeof data.error==='string'?data.error:fallback);
   return data;
 }

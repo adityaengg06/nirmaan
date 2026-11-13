@@ -362,3 +362,17 @@ html[data-nirmaan-intro=seen] .intro-overlay:not([data-replay=true]){display:non
 .preview-email-help,.preview-email-pending{font-size:11px;line-height:1.6;margin-top:10px;color:#7a8771}
 .preview-email-pending{color:#a96138}
 @media(max-width:760px){.preview-email-actions .btn{min-height:44px;font-size:12px}.preview-email-help,.preview-email-pending{font-size:12px;line-height:1.6}}
+
+/* Google Identity Services supplies the sign-in button and branding. */
+.google-sign-in{width:100%;min-width:0;margin:24px 0}
+.google-button-host{min-height:44px;width:100%;max-width:400px}
+.google-auth-error{padding:16px;border:1px solid #edc9b7;background:#fff6f0;border-radius:12px;font-size:14px;line-height:1.6}
+.google-auth-error p{margin:0 0 12px}
+.google-auth-error .text-link{display:flex;margin-top:12px}
+.sign-out-control{margin:10px 0 18px;font-size:13px}
+.sign-out-control .error{max-width:280px}
+.dashboard-top-actions .sign-out-control{margin:0}
+.signin-page{min-height:70vh;max-width:650px;margin:auto}
+.signin-page>.brand{display:inline-block;margin-bottom:32px}
+.signin-page h1{font-size:clamp(28px,5vw,40px)}
+@media(max-width:480px){.signup-card{padding:22px 18px}.google-button-host{max-width:100%}.google-auth-error{padding:12px}}
