@@ -79,11 +79,33 @@ These are prepared commands only, not actions performed by this task. After appr
 
 ```sh
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --remote --config dist/server/wrangler.json --file drizzle/0003_sharp_whistler.sql
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js deploy --config dist/server/wrangler.json
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js deploy --config dist/server/wrangler.json --name YOUR_SEPARATE_WORKER_NAME
 ```
 
-Legacy-account SQL is a separate approval, not part of deployment. Verify real Google sign-in, account creation, logout, private uploads and renewals on the configured origin after an approved release.
+Choose the intended separate Worker name and verify the existing R2 bucket name (`site-creator-r2` in this checkout) before release. Configure its production variables first; keep the existing D1 ID and private R2 objects. Legacy-account SQL is a separate approval, not part of deployment. Verify real Google sign-in, account creation, logout, private uploads and renewals on the configured origin after an approved release.
 
 ## Verification
 
 Use `npx tsc --noEmit`, `npm run build`, `node scripts/check-google-auth.mjs`, and `node --experimental-strip-types scripts/check-account-validation.mjs`. Google auth tests use ephemeral SQLite and cryptographic fixtures; a real Google Web client and browser are still needed for live provider verification. Old test scripts that inject Sites/mock headers do not authenticate this Worker.
+
+## Repeatable local integration and browser checks
+
+The Google security suite uses real generated RSA signatures and ephemeral SQLite. The native integration suite uses synthetic sessions seeded only into this checkout's `.wrangler/state`; application token verification remains enabled. Never import `scripts/helpers/auth-fixtures.mjs` from application code.
+
+Start a separate local built Worker for integration tests:
+
+```sh
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --port 8787 --inspector-port 0 --var AUTH_ENV:development --var APP_ORIGIN:http://127.0.0.1:8787
+```
+
+Then run `npm run test:auth:integration`. It covers account creation, private artwork/receipt access, quotes, payment verification, renewals, student access, forged-header rejection and session revocation. This local command overrides HTTP cookie transport explicitly and does not change production configuration.
+
+With the dev server on localhost:5173 and an existing local Chrome DevTools endpoint on port 9223, run `npm run test:auth:browser` and `node scripts/check-mobile-browser.mjs`. The Google browser test labels its SDK/failure-response stubs; the mobile test uses actual D1 sessions and API requests. A separate browser check confirmed the real Google-rendered iframe loads with the configured local Client ID. A human must still complete Google account selection to verify a live provider login. No credentials are requested by these tests.
+
+The supplied public Google Client ID was configured in ignored `.dev.vars` for local preview only. Production requires its own approved runtime configuration and authorized Google origins. The local auth migration was applied; no remote database was altered.
+
+## Changed files
+
+`GOOGLE_AUTH.md` and the following tracked/new source files comprise this change. Removed files are listed as well. The ignored local `.dev.vars` file is excluded from Git.
+
+- `package.json`
